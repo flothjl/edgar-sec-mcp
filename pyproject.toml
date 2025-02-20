@@ -1,0 +1,17 @@
+[project]
+name = "edgar-sec-mcp"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Josh Floth", email = "flothjldev@proton.me" }
+]
+requires-python = ">=3.13"
+dependencies = []
+
+[project.scripts]
+edgar-sec-mcp = "edgar_sec_mcp:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
