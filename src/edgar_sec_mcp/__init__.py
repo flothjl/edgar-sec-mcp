@@ -1,2 +1,9 @@
-def main() -> None:
-    print("Hello from edgar-sec-mcp!")
+from edgar_sec_mcp.server import mcp
+
+
+def main():
+    mcp.run()
+
+
+if __name__ == "__main__":
+    main()

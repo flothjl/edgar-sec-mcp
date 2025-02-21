@@ -7,7 +7,10 @@ authors = [
     { name = "Josh Floth", email = "flothjldev@proton.me" }
 ]
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "httpx>=0.28.1",
+    "mcp[cli]>=1.3.0",
+]
 
 [project.scripts]
 edgar-sec-mcp = "edgar_sec_mcp:main"
