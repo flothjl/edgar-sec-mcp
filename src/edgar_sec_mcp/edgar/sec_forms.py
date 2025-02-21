@@ -16,9 +16,9 @@ class FormFetcher[T]:
 
     def __init__(
         self,
-        parse_fn: Callable[..., T],
         url_builder: Callable[..., str],
         form_codes: List[str],
+        parse_fn: Callable[..., T] | None = None,
         headers: Dict[str, str] | None = None,
     ):
         self.url_builder = url_builder
@@ -31,7 +31,7 @@ class FormFetcher[T]:
         submissions: List[Submission],
         cik: str,
         limit: int | None = None,
-    ) -> List[T]:
+    ) -> List[T] | List[str]:
         """
         Executes the filing analysis.
 
@@ -56,6 +56,9 @@ class FormFetcher[T]:
                 )
                 response = httpx.get(url, headers=self.headers)
                 response.raise_for_status()
-                output.append(self.parse_fn(response.text))
+                if self.parse_fn:
+                    output.append(self.parse_fn(response.text))
+                else:
+                    output.append(response.text)
 
         return output

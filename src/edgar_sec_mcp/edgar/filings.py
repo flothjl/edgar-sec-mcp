@@ -1,4 +1,3 @@
-import xml.etree.ElementTree as ET
 from typing import Dict, List
 
 import httpx
@@ -28,10 +27,10 @@ class CompanyFilings:
                 self.cik_map = util.CikLookupByTicker(self._headers).cik_map
             self.cik = str(self.cik_map[ticker.lower()])
         except KeyError as e:
-            raise InitializationError("Ticker symbol not found in CIK map") from e
+            raise InitializationError("Unable to find ticker") from e
         self._submissions = None
         self._form_4_fetcher = FormFetcher(
-            parse_form_4, form_4_url_builder, ["4"], self._headers
+            url_builder=form_4_url_builder, form_codes=["4"], headers=self._headers
         )
 
     @property
@@ -44,7 +43,7 @@ class CompanyFilings:
             self._submissions = self._get_submissions()
         return self._submissions
 
-    def get_form_4_filings(self, last: int = 10) -> List[models.Form4]:
+    def get_form_4_filings(self, last: int = 10) -> List[str]:
         try:
             return self._form_4_fetcher.execute(self.submissions, self.cik, last)
         except Exception as e:
@@ -75,52 +74,3 @@ class CompanyFilings:
         ):
             submissions.append(models.Submission(*record))
         return submissions
-
-
-def parse_form_4(raw_data: str) -> models.Form4:
-    root = ET.fromstring(raw_data)
-    data = dict()
-    reporting_owner = root.find(".//reportingOwner")
-    if reporting_owner is not None:
-        data["reporting_owner"] = reporting_owner.findtext(
-            "reportingOwnerId/rptOwnerName"
-        )
-        data["reporting_owner_title"] = reporting_owner.findtext(
-            "reportingOwnerRelationship/officerTitle"
-        )
-        is_director = reporting_owner.findtext("reportingOwnerRelationship/isDirector")
-        is_officer = reporting_owner.findtext("reportingOwnerRelationship/isOfficer")
-        is_ten_percent_owner = reporting_owner.findtext(
-            "reportingOwnerRelationship/isTenPercentOwner"
-        )
-
-        if is_director == "1":
-            data["reporting_owner_relationship"] = "DIRECTOR"
-        elif is_officer == "1":
-            data["reporting_owner_relationship"] = "OFFICER"
-        elif is_ten_percent_owner == "1":
-            data["reporting_owner_relationship"] = "10% OWNER"
-        else:
-            data["reporting_owner_relationship"] = "OTHER"
-
-    transaction = root.find(".//nonDerivativeTransaction")
-    if transaction is not None:
-        data = {
-            **data,
-            "security_title": transaction.findtext("securityTitle/value"),
-            "transaction_date": transaction.findtext("transactionDate/value"),
-            "transaction_code": transaction.findtext(
-                "transactionCoding/transactionCode"
-            ),
-            "transaction_shares": transaction.findtext(
-                "transactionAmounts/transactionShares/value"
-            ),
-            "transaction_price": transaction.findtext(
-                "transactionAmounts/transactionPricePerShare/value"
-            ),
-            "shares_owned_following_transaction": transaction.findtext(
-                "postTransactionAmounts/sharesOwnedFollowingTransaction/value"
-            ),
-        }
-
-    return models.Form4(**data)
