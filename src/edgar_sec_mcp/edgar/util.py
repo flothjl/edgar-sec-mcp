@@ -1,3 +1,5 @@
+import logging
+import threading
 from typing import Dict
 
 import httpx
@@ -9,10 +11,11 @@ class CikLookupByTicker:
 
     Methods:
         cik_map(self): Returns the CIK map.
-        get_sec_cik_list(headers: Dict | None = None) -> Dict: Retrieves the SEC CIK list.
+        get_sec_cik_list(headers: Dict) -> Dict: Retrieves the SEC CIK list.
     """
 
     __CIK_MAP = None
+    __lock = threading.Lock()
 
     def __init__(self, headers: Dict | None = None):
         self._headers = headers
@@ -23,8 +26,9 @@ class CikLookupByTicker:
 
     @classmethod
     def _get_cik_map(cls, headers: Dict | None = None):
-        if cls.__CIK_MAP is None:
-            cls.__CIK_MAP = cls.get_sec_cik_list(headers)
+        with cls.__lock:
+            if cls.__CIK_MAP is None:
+                cls.__CIK_MAP = cls.get_sec_cik_list(headers)
         return cls.__CIK_MAP
 
     @staticmethod
@@ -39,9 +43,23 @@ class CikLookupByTicker:
             Dict: A dictionary mapping ticker symbols to CIK numbers.
         """
         URL = "https://www.sec.gov/include/ticker.txt"
+        CIK_DELIM = "\t"
         response = httpx.get(URL, headers=headers)
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            logging.error(
+                f"HTTP error occurred: {e.response.status_code} - {e.response.text}"
+            )
+            raise
         data = response.text
         lines = data.strip().split("\n")
-        ticker_cik_dict = {line.split("\t")[0]: line.split("\t")[1] for line in lines}
-        return ticker_cik_dict
+        ticker_ciks = dict()
+        for line in lines:
+            try:
+                ticker_ciks[line.split(CIK_DELIM)[0]] = line.split(CIK_DELIM)[1]
+            except Exception:
+                # Skip
+                continue
+
+        return ticker_ciks

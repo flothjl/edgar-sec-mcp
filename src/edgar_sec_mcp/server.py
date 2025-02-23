@@ -23,7 +23,7 @@ async def get_gov_spending_by_fiscal_year(
 ) -> List[str]:
     """Get a list of URLs for to latest Form 4 filings for a given ticker symbol"""
     try:
-        filings = CompanyFilings(APP_NAME, EMAIL, args.ticker).get_form_4_filings()
+        filings = CompanyFilings(APP_NAME, EMAIL, args.ticker).form4.get()
         return filings
     except Exception as e:
         raise McpError(

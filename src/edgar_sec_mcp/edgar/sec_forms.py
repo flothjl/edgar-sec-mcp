@@ -1,11 +1,17 @@
-from typing import Callable, Dict, List
+from typing import Callable, Dict, Generic, List, TypeVar
 
 import httpx
 
 from .models import Submission
 
+R = TypeVar("R")
 
-class FormFetcher[T]:
+
+def _default_parse_fn(data: str) -> str:
+    return data
+
+
+class FormFetcher(Generic[R]):
     """
     Fetches and analyzes forms based on the provided parameters.
 
@@ -18,20 +24,17 @@ class FormFetcher[T]:
         self,
         url_builder: Callable[..., str],
         form_codes: List[str],
-        parse_fn: Callable[..., T] | None = None,
+        submissions: List[Submission],
+        parse_fn: Callable[..., R] = _default_parse_fn,
         headers: Dict[str, str] | None = None,
     ):
         self.url_builder = url_builder
         self.form_codes = form_codes
         self.parse_fn = parse_fn
         self.headers = headers
+        self.submissions = submissions
 
-    def execute(
-        self,
-        submissions: List[Submission],
-        cik: str,
-        limit: int | None = None,
-    ) -> List[T] | List[str]:
+    def get(self, limit: int = 10) -> List[R]:
         """
         Executes the filing analysis.
 
@@ -42,23 +45,16 @@ class FormFetcher[T]:
             headers (Dict[str, str] | None, optional): The headers to include in the HTTP request. Defaults to None.
 
         Returns:
-            List[T]: A list of objects of type T resulting from the analysis.
+            List[R]: A list of objects of type T resulting from the analysis.
         """
         output = []
-        for submission in submissions:
+        for submission in self.submissions:
             if limit is not None and len(output) >= limit:
                 break
             if submission.form in self.form_codes:
-                url = self.url_builder(
-                    cik,
-                    submission.accession,
-                    submission.primary_document,
-                )
+                url = self.url_builder(submission)
                 response = httpx.get(url, headers=self.headers)
                 response.raise_for_status()
-                if self.parse_fn:
-                    output.append(self.parse_fn(response.text))
-                else:
-                    output.append(response.text)
+                output.append(self.parse_fn(response.text))
 
         return output
