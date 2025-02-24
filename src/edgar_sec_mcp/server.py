@@ -13,23 +13,52 @@ APP_NAME = "edgar-mcp"
 EMAIL = "test@test.com"
 
 
-class GetForm4ByTickerReq(BaseModel):
+class BaseReq(BaseModel):
     ticker: str = Field(pattern=r"^[A-Z]{1,5}([.-][A-Z0-9]{1,3})?$")
+    limit: int = Field(default=10, le=20)
+
+
+class GetForm4ByTickerReq(BaseReq): ...
 
 
 @mcp.tool(name="GetForm4ByTicker")
-async def get_gov_spending_by_fiscal_year(
+async def get_form4_by_ticker(
     args: GetForm4ByTickerReq,
 ) -> List[str]:
-    """Get a list of URLs for to latest Form 4 filings for a given ticker symbol"""
+    """Get data from form 4 filings. Useful if looking for insider trades"""
     try:
-        filings = CompanyFilings(APP_NAME, EMAIL, args.ticker).form4.get()
+        filings = CompanyFilings(APP_NAME, EMAIL, args.ticker).form4.get(args.limit)
         return filings
     except Exception as e:
         raise McpError(
             mcp_types.ErrorData(
                 code=mcp_types.INTERNAL_ERROR,
                 message=f"Error fetching form 4 filings for {args.ticker}: {e}",
+            )
+        )
+
+
+class GetProxyStatementsByTickerReq(BaseReq):
+    limit: int = Field(le=1, default=1)
+
+
+@mcp.tool(name="GetProxyStatementTablesByTicker")
+async def get_proxy_statement_table_data_by_ticker(
+    args: GetProxyStatementsByTickerReq,
+) -> List[List[str]]:
+    """Get table data from proxy statements by ticker. Useful if looking for annual executive compensation plans.
+    IMPORTANT NOTE - the returned value is a list of csv strings of all tables in the proxy statement. Some
+    of the tables will be relevant to compensation and some will not"""
+    try:
+        filings = CompanyFilings(APP_NAME, EMAIL, args.ticker).proxy_statements.get(
+            args.limit
+        )
+        return filings
+    except Exception as e:
+        raise McpError(
+            mcp_types.ErrorData(
+                code=mcp_types.INTERNAL_ERROR,
+                message=f"Error fetching proxy statements filings for {args.ticker}: {e}",
             )
         )
 
